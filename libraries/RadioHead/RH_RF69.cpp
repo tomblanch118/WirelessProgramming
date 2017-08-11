@@ -1,7 +1,7 @@
 // RH_RF69.cpp
 //
 // Copyright (C) 2011 Mike McCauley
-// $Id: RH_RF69.cpp,v 1.27 2017/01/12 23:58:00 mikem Exp $
+// $Id: RH_RF69.cpp,v 1.29 2017/06/25 09:41:17 mikem Exp $
 
 #include <RH_RF69.h>
 
@@ -203,6 +203,7 @@ void RH_RF69::handleInterrupt()
 	// A transmitter message has been fully sent
 	setModeIdle(); // Clears FIFO
 	_txGood++;
+//	Serial.println("PACKETSENT");
     }
     // Must look for PAYLOADREADY, not CRCOK, since only PAYLOADREADY occurs _after_ AES decryption
     // has been done
@@ -215,11 +216,14 @@ void RH_RF69::handleInterrupt()
 	setModeIdle();
 	// Save it in our buffer
 	readFifo();
-	//Serial.println("PRDY");
+//	Serial.println("PAYLOADREADY");
     }
 }
 
-
+// Low level function reads the FIFO and checks the address
+// Caution: since we put our headers in what the RH_RF69 considers to be the payload, if encryption is enabled
+// we have to suffer the cost of decryption before we can determine whether the address is acceptable. 
+// Performance issue?
 void RH_RF69::readFifo()
 {
     ATOMIC_BLOCK_START;
@@ -244,18 +248,11 @@ void RH_RF69::readFifo()
 		_buf[_bufLen] = _spi.transfer(0);
 	    _rxGood++;
 	    _rxBufValid = true;
-		
-	 //   Serial.print("Gd=");
-	 //   Serial.println(_rxHeaderFrom);
 	}
-
-    	else{
-	   // Serial.println("Bd");
-    	}
     }
-    
     digitalWrite(_slaveSelectPin, HIGH);
     ATOMIC_BLOCK_END;
+    // Any junk remaining in the FIFO will be cleared next time we go to receive mode.
 }
 
 // These are low level functions that call the interrupt handler for the correct
@@ -296,6 +293,7 @@ bool RH_RF69::setFrequency(float centre, float afcPullInRange)
     spiWrite(RH_RF69_REG_09_FRFLSB, frf & 0xff);
 
     // afcPullInRange is not used
+    (void)afcPullInRange;
     return true;
 }
 
@@ -489,7 +487,6 @@ bool RH_RF69::available()
     return _rxBufValid;
 }
 
-
 bool RH_RF69::recv(uint8_t* buf, uint8_t* len)
 {
     if (!available())
@@ -503,7 +500,7 @@ bool RH_RF69::recv(uint8_t* buf, uint8_t* len)
 	memcpy(buf, _buf, *len);
 	ATOMIC_BLOCK_END;
     }
-    _rxBufValid = false; // Gopt the most recent message
+    _rxBufValid = false; // Got the most recent message
 //    printBuffer("recv:", buf, *len);
     return true;
 }
@@ -529,12 +526,11 @@ bool RH_RF69::send(const uint8_t* data, uint8_t len)
     _spi.transfer(_txHeaderId);
     _spi.transfer(_txHeaderFlags);
     // Now the payload
-    while (len--){
+    while (len--)
 	_spi.transfer(*data++);
-    	
-    }
     digitalWrite(_slaveSelectPin, HIGH);
     ATOMIC_BLOCK_END;
+
     setModeTx(); // Start the transmitter
     return true;
 }

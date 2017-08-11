@@ -1,7 +1,7 @@
 // RH_RF69.h
 // Author: Mike McCauley (mikem@airspayce.com)
 // Copyright (C) 2014 Mike McCauley
-// $Id: RH_RF69.h,v 1.34 2017/03/08 09:30:47 mikem Exp mikem $
+// $Id: RH_RF69.h,v 1.35 2017/06/20 05:21:17 mikem Exp $
 //
 ///
 
@@ -845,8 +845,6 @@ public:
     /// \param[in,out] len Pointer to available space in buf. Set to the actual number of octets copied.
     /// \return true if a valid message was copied to buf
     bool        recv(uint8_t* buf, uint8_t* len);
-
-    bool        getbuf(uint8_t* buf, uint8_t* len);
 
     /// Waits until any previous transmit packet is finished being transmitted with waitPacketSent().
     /// Then loads a message into the transmitter and starts the transmitter. Note that a message length

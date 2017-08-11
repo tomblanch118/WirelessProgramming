@@ -48,6 +48,7 @@ typedef struct packet_update_request
   uint8_t type = 0x22;
   uint16_t number_packets;
   uint16_t size;
+  uint8_t crc;
 } packet_update_request;
 
 uint8_t receive_new_image(void);
@@ -146,71 +147,86 @@ uint8_t reprogram_node()
 {
   sprintln(CMD_CTS);
 
+  if (valid_image()) {
+    sprintln(0x01);
+  }
+  else
+  {
+    sprintln(0x00);
+    return FAILURE;
+  }
+
   while (!Serial.available());
 
   uint8_t node_id = Serial.read();
 
   sprintln(node_id);
 
-  if (valid_image()) {
-    sprintln(0x01);
-    uint32_t image_size = get_image_size();
-    sprintln(image_size);
-    packet_update_request request;
-    uint32_t packets = (uint32_t)ceil((float)image_size / (float)MAX_BYTES_PACKET);
-    request.number_packets = packets;
-    sprintln(packets);
-
-    packet_update pupdate;
-    uint16_t seq_n = 0;
-    uint8_t c = 0;
-    pupdate.checksum = 0;
-    char buff[10];
-    for (uint32_t address = ADDR_IMG_START; address < (image_size + ADDR_IMG_START); address++)
-    {
-      uint8_t data = flash.readByte(address);
-      pupdate.data[c] = data;
-      // sprintf(buff, "%02X", pupdate.data[c]);
-      //  Serial.print(buff);
-      c++;
-      pupdate.checksum =  pupdate.checksum ^ data;
-
-      if (c >= MAX_BYTES_PACKET || (((image_size + ADDR_IMG_START) - address) == 1) )
-      {
-
-        //Send
-        //pupdate =
-        Serial.print(seq_n);
-        Serial.print(":");
-        Serial.print(((image_size + ADDR_IMG_START) - address));
-        Serial.print(":");
-        Serial.println(c);
-        pupdate.sequence_number = seq_n;
-        pupdate.size = c;
-        Serial.println(sizeof(pupdate));
-        if (manager.sendtoWait((uint8_t *)&pupdate, sizeof(pupdate), 10))
-          // if (manager.sendtoWait(test2, sizeof(test2), 10))
-        {
-          delay(10);
-        }
-        else {
-          Serial.println("sendtoWait failed");
-          break;
-        }
-
-        pupdate.checksum = 0;
-        c = 0;
-
-        seq_n++;
+  uint32_t image_size = get_image_size();
+  sprintln(image_size);
 
 
-      }
-    }
+  uint32_t packets = (uint32_t)ceil((float)image_size / (float)MAX_BYTES_PACKET);
+  packet_update_request updt_req;
+  updt_req.size = image_size;
+  updt_req.number_packets = packets;
+
+  if (manager.sendtoWait((uint8_t *)&updt_req, sizeof(updt_req), node_id)) {
+    sprintln(SUCCESS);
   }
   else
   {
-    sprintln(0x00);
+    sprintln(FAILURE);
+    return FAILURE;
   }
+
+  sprintln(packets);
+
+  packet_update pupdate;
+  uint16_t seq_n = 0;
+  uint8_t c = 0;
+  pupdate.checksum = 0;
+  //char buff[10];
+  
+  for (uint32_t address = ADDR_IMG_START; address < (image_size + ADDR_IMG_START); address++)
+  {
+    uint8_t data = flash.readByte(address);
+    pupdate.data[c] = data;
+
+    c++;
+    pupdate.checksum =  pupdate.checksum ^ data;
+
+    if (c >= MAX_BYTES_PACKET || (((image_size + ADDR_IMG_START) - address) == 1) )
+    {
+
+      Serial.print(seq_n);
+      Serial.print(":");
+      Serial.print(((image_size + ADDR_IMG_START) - address));
+      Serial.print(":");
+      Serial.println(c);
+      pupdate.sequence_number = seq_n;
+      pupdate.size = c;
+      Serial.println(sizeof(pupdate));
+
+      if (manager.sendtoWait((uint8_t *)&pupdate, sizeof(pupdate), node_id))
+      {
+        delay(10);
+      }
+      else {
+        Serial.println("sendtoWait failed");
+        break;
+      }
+
+      pupdate.checksum = 0;
+      c = 0;
+
+      seq_n++;
+
+
+    }
+  }
+
+  //
 
 
 }

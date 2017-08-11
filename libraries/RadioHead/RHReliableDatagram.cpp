@@ -9,7 +9,7 @@
 //
 // Author: Mike McCauley (mikem@airspayce.com)
 // Copyright (C) 2011 Mike McCauley
-// $Id: RHReliableDatagram.cpp,v 1.17 2017/03/08 09:30:47 mikem Exp mikem $
+// $Id: RHReliableDatagram.cpp,v 1.17 2017/03/08 09:30:47 mikem Exp $
 
 #include <RHReliableDatagram.h>
 
@@ -44,7 +44,6 @@ uint8_t RHReliableDatagram::retries()
     return _retries;
 }
 
-
 ////////////////////////////////////////////////////////////////////
 bool RHReliableDatagram::sendtoWait(uint8_t* buf, uint8_t len, uint8_t address)
 {
@@ -53,8 +52,7 @@ bool RHReliableDatagram::sendtoWait(uint8_t* buf, uint8_t len, uint8_t address)
     uint8_t retries = 0;
     while (retries++ <= _retries)
     {
-	//Serial.println("tx");
-	 setHeaderId(thisSequenceNumber);
+	setHeaderId(thisSequenceNumber);
 	setHeaderFlags(RH_FLAGS_NONE, RH_FLAGS_ACK); // Clear the ACK flag
 	sendto(buf, len, address);
 	waitPacketSent();
@@ -80,9 +78,8 @@ bool RHReliableDatagram::sendtoWait(uint8_t* buf, uint8_t len, uint8_t address)
 	{
 	    if (waitAvailableTimeout(timeLeft))
 	    {
-		_acklen = sizeof(_ackbuf);
 		uint8_t from, to, id, flags;
-		if (recvfrom(_ackbuf,&_acklen, &from, &to, &id, &flags)) // Discards the message
+		if (recvfrom(0, 0, &from, &to, &id, &flags)) // Discards the message
 		{
 		    // Now have a message: is it our ACK?
 		    if (   from == address 

@@ -12,6 +12,8 @@ CMD_READ_IMG_STAT = 0xFC
 CMD_INVALID_CMD = 0xFF
 CMD_REPROG_NODE = 0xFD
 CMD_NEW_IMG_CTS = 0x01
+CMD_SUCCESS = 0x01
+CMD_FAILURE = 0x00
 
 #sends a firmware image over serial 
 def send_image():
@@ -116,11 +118,29 @@ def reprogram_node(nodeID):
         cts = cts.strip()
 
         if(int(cts) == int(CMD_NEW_IMG_CTS)):
-		print "Reprogramming request accepted"
-		Gateway.write(chr(nodeID))
-		print Gateway.readline()
-		while True:
-			print Gateway.readline()
+            
+            valid_image = Gateway.readline().strip()
+            if(int(valid_image) != int(CMD_SUCCESS)):
+                print "No image to program with"
+                return
+
+	    Gateway.write(chr(nodeID))
+	    
+            node_id_resp = Gateway.readline()
+            print("Programmer using address:",node_id_resp)
+
+            img_size_resp = Gateway.readline()
+            print("Image size: ",img_size_resp)
+
+            contact = Gateway.readline()
+            if(int(contact) == int(CMD_FAILURE)):
+                print("Couldn't make contact with remote node, address: ",node_id_resp)
+                return
+            
+            
+            #print "Reprogramming request accepted"
+	    while True:
+	        print Gateway.readline()
 
 
 #Do something better for parsing arguments, alright for now
@@ -157,7 +177,7 @@ for option in sys.argv:
         send_image()
     if option == "-reprog":
 
-        reprogram_node(10)
+        reprogram_node(node_addr)
 #send_image()
 #read_image_status()
 #read_image()

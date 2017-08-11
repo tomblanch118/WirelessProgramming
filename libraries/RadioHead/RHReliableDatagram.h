@@ -162,8 +162,7 @@ public:
     /// Resets the count of the number of retransmissions 
     /// to 0. 
     void resetRetransmissions(); 
-    uint8_t _ackbuf[60];
-    uint8_t _acklen;
+
 protected:
     /// Send an ACK for the message id to the given from address
     /// Blocks until the ACK has been sent

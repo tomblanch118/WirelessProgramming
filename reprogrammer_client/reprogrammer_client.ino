@@ -25,6 +25,13 @@ typedef struct packet_update
   uint8_t data[MAX_BYTES_PACKET];
 } packet_update;
 
+typedef struct packet_update_request
+{
+  uint8_t type = 0x22;
+  uint16_t number_packets;
+  uint16_t size;
+} packet_update_request;
+
 SPIFlash flash(8, 0xEF30);
 
 void setup()
@@ -66,36 +73,65 @@ void loop()
     // Wait for a message addressed to us from the client
     uint8_t len = sizeof(buf);
     uint8_t from;
+
     if (manager.recvfromAck(buf, &len, &from))
     {
-      if (buf[0] == 0x11)
+      if (buf[0] == 0x22)
       {
-        packet_update * pupdt = (packet_update *)&buf;
-        Serial.println(pupdt->size);
-        for (uint8_t i = 0; i < pupdt->size; i++)
+        Serial.println("Got update request");
+        packet_update_request * updt_req;
+        updt_req = (packet_update_request *)&buf;
+
+        reprogram_sm(updt_req->number_packets, updt_req->size);
+
+
+      }
+
+    }
+  }
+}
+
+void reprogram_sm(uint16_t npackets, uint16_t size)
+{
+  while (1) {
+    if (manager.available())
+    {
+      // Wait for a message addressed to us from the client
+      uint8_t len = sizeof(buf);
+      uint8_t from;
+
+      if (manager.recvfromAck(buf, &len, &from))
+      {
+        if (buf[0] == 0x11)
         {
+          packet_update * pupdt = (packet_update *)&buf;
 
-          flash.writeByte(ADDR_IMG_START + address, pupdt->data[i]);
 
-          address++;
-        }
+          for (uint8_t i = 0; i < pupdt->size; i++)
+          {
 
-        if (pupdt->size < MAX_BYTES_PACKET)
-        {
-          Serial.print("Done\nfile size=");
-          Serial.println((address));
-          uint16_t temp_size = (uint16_t)(address);
-          flash.writeByte(0, 'F');
-          flash.writeByte(1, 'L');
-          flash.writeByte(2, 'X');
-          flash.writeByte(3, 'I');
-          flash.writeByte(4, 'M');
-          flash.writeByte(5, 'G');
-          flash.writeByte(6, ':');
-          flash.writeByte(9, ':');
-          flash.writeByte(7, temp_size >> 8);
-          flash.writeByte(8, temp_size);
-          Reset_AVR()
+            flash.writeByte(ADDR_IMG_START + address, pupdt->data[i]);
+
+            address++;
+          }
+
+          if (pupdt->size < MAX_BYTES_PACKET)
+          {
+            Serial.print("Done\nfile size=");
+            Serial.println((address));
+            uint16_t temp_size = (uint16_t)(address);
+            flash.writeByte(0, 'F');
+            flash.writeByte(1, 'L');
+            flash.writeByte(2, 'X');
+            flash.writeByte(3, 'I');
+            flash.writeByte(4, 'M');
+            flash.writeByte(5, 'G');
+            flash.writeByte(6, ':');
+            flash.writeByte(9, ':');
+            flash.writeByte(7, temp_size >> 8);
+            flash.writeByte(8, temp_size);
+            Reset_AVR()
+          }
         }
       }
     }

@@ -1,7 +1,7 @@
 // RH_RF95.cpp
 //
 // Copyright (C) 2011 Mike McCauley
-// $Id: RH_RF95.cpp,v 1.14 2017/03/04 00:59:41 mikem Exp $
+// $Id: RH_RF95.cpp,v 1.16 2017/06/24 20:36:15 mikem Exp $
 
 #include <RH_RF95.h>
 
@@ -170,7 +170,9 @@ void RH_RF95::handleInterrupt()
         _cad = irq_flags & RH_RF95_CAD_DETECTED;
         setModeIdle();
     }
-    
+    // Sigh: on some processors, for some unknown reason, doing this only once does not actually
+    // clear the radio's interrupt flag. So we do it twice. Why?
+    spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
     spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
 }
 
@@ -446,8 +448,13 @@ int RH_RF95::frequencyError()
     int32_t freqerror = 0;
 
     // Convert 2.5 bytes (5 nibbles, 20 bits) to 32 bit signed int
-    freqerror = spiRead(RH_RF95_REG_28_FEI_MSB) << 16;
-    freqerror |= spiRead(RH_RF95_REG_29_FEI_MID) << 8;
+    // Caution: some C compilers make errors with eg:
+    // freqerror = spiRead(RH_RF95_REG_28_FEI_MSB) << 16
+    // so we go more carefully.
+    freqerror = spiRead(RH_RF95_REG_28_FEI_MSB);
+    freqerror <<= 8;
+    freqerror |= spiRead(RH_RF95_REG_29_FEI_MID);
+    freqerror <<= 8;
     freqerror |= spiRead(RH_RF95_REG_2A_FEI_LSB);
     // Sign extension into top 3 nibbles
     if (freqerror & 0x80000)
